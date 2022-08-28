@@ -358,6 +358,19 @@ namespace Editor
             }
         }
 
+        private async Task AddSvgAsync(ushort glyphID, StorageFile svgFile)
+        {
+            try
+            {
+                await fontFile.AddSvgAsync(glyphID, svgFile);
+            }
+            catch (Exception exc)
+            {
+                await NotifyUserAsync($"Error while processing file {svgFile.Name}", exc);
+                throw;
+            }
+        }
+
         // When the "Import all SVG..." button is clicked, retrieve all SVG objects from the folder
         // and embed them into the font
         private async void ImportAllSvgButtonClick(object sender, RoutedEventArgs e)
@@ -394,7 +407,7 @@ namespace Editor
                     {
                         if (codepoints.ContainsKey(glyph.CodePoint))
                         {
-                            await fontFile.AddSvgAsync(glyph.GlyphID, codepoints[glyph.CodePoint]);
+                            await AddSvgAsync(glyph.GlyphID, codepoints[glyph.CodePoint]);
                             await fontFile.ReloadDataAsync();
                             break;
                         }
@@ -406,7 +419,7 @@ namespace Editor
                     {
                         if (codepoints.ContainsKey(glyph.CodePoint))
                         {
-                            await fontFile.AddSvgAsync(glyph.GlyphID, codepoints[glyph.CodePoint]);
+                            await AddSvgAsync(glyph.GlyphID, codepoints[glyph.CodePoint]);
                             ++patchedFiles;
                         }
                     }
@@ -418,7 +431,7 @@ namespace Editor
                 }
                 catch (Exception exc)
                 {
-                    await NotifyUserAsync("The app encountered an error while trying to import SVG files to the font. Please ensure the font is well-formed.", exc);
+                    await NotifyUserAsync("The app encountered an error while trying to import SVG files to the font. Please ensure the font and SVG files are well-formed.", exc);
                     return;
                 }
             }

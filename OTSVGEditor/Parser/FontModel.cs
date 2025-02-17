@@ -335,29 +335,40 @@ namespace OTParser
             {
                 if (record.tag == "SVG ")
                 {
-                    numExportedSvgs = parser.ExportSvgContent(record, source, outputFolder);
+                    var glyphs = new Dictionary<ushort, GlyphModel>();
+                    for (int i = 0; i < AllGlyphs.Count; i++)
+                    {
+                        GlyphModel glyph = AllGlyphs[i];
+                        glyphs[glyph.GlyphID] = glyph;
+                    }
+                    numExportedSvgs = parser.ExportSvgContent(record, glyphs, source, outputFolder);
                 }
             }
 
             // Show toast with number of successful SVG files saved.
             if (numExportedSvgs > 0)
             {
-                // Make the toast.
-                ToastTemplateType toastTemplate = ToastTemplateType.ToastText01;
-                Windows.Data.Xml.Dom.XmlDocument xml = ToastNotificationManager.GetTemplateContent(toastTemplate);
-                xml.DocumentElement.SetAttribute("launch", "Args");
-
                 // Set up the toast text.
-                string toastString = numExportedSvgs + " SVGs were successfully saved to " + outputFolder.Path;
-                Windows.Data.Xml.Dom.XmlText toastText = xml.CreateTextNode(toastString);
-                Windows.Data.Xml.Dom.XmlNodeList elements = xml.GetElementsByTagName("text");
-                elements[0].AppendChild(toastText);
-
-                // Show the toast.
-                ToastNotification toast = new ToastNotification(xml);
-                ToastNotifier toastNotifier = ToastNotificationManager.CreateToastNotifier();
-                toastNotifier.Show(toast);
+                ShowToast(numExportedSvgs + " SVGs were successfully saved to " + outputFolder.Path);
             }
+        }
+
+        public void ShowToast(string toastString)
+        {
+            // Make the toast.
+            ToastTemplateType toastTemplate = ToastTemplateType.ToastText01;
+            Windows.Data.Xml.Dom.XmlDocument xml = ToastNotificationManager.GetTemplateContent(toastTemplate);
+            xml.DocumentElement.SetAttribute("launch", "Args");
+
+            // Set up the toast text.
+            Windows.Data.Xml.Dom.XmlText toastText = xml.CreateTextNode(toastString);
+            Windows.Data.Xml.Dom.XmlNodeList elements = xml.GetElementsByTagName("text");
+            elements[0].AppendChild(toastText);
+
+            // Show the toast.
+            ToastNotification toast = new ToastNotification(xml);
+            ToastNotifier toastNotifier = ToastNotificationManager.CreateToastNotifier();
+            toastNotifier.Show(toast);
         }
     }
 }

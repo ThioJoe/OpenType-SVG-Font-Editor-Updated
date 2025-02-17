@@ -752,7 +752,7 @@ namespace OTParser
 
         // Reads through the SVG table copying over all of the SVG content into individual .svg files and writes those files into 
         // a folder of the name, outputFolder
-        public int ExportSvgContent(TableRecord rt, byte[] source, StorageFolder outputFolder)
+        public int ExportSvgContent(TableRecord rt, Dictionary<ushort, GlyphModel> glyphs, byte[] source, StorageFolder outputFolder)
         {
             int numberSvgs = 0;
             start = rt.offset; // start always refer to the offset to the file head.
@@ -771,7 +771,11 @@ namespace OTParser
             for (int i = 0; i < docIdxEntries.Length; i++)
             {
                 docIdxEntries[i] = ReadSvgDocIdxEntry(source, ref documentIndexOffset);
-                string filename = docIdxEntries[i].startID.ToString();
+                if (!glyphs.ContainsKey(docIdxEntries[i].startID))
+                {
+                    continue;
+                }
+                string filename = glyphs[docIdxEntries[i].startID].CodePointHexString;
                 byte[] svgContent = new byte[docIdxEntries[i].docLength];
                 Array.Copy(source, (int)(docIdxEntries[i].docOffset + rt.offset + svgDocIndexOffset), svgContent, 0, svgContent.Length);
                 WriteSvgContent(outputFolder, filename, svgContent);

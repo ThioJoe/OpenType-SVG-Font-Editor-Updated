@@ -68,7 +68,6 @@ namespace Editor
             FileOpenPicker openPicker = new FileOpenPicker();
             openPicker.ViewMode = PickerViewMode.List;
             openPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-            openPicker.FileTypeFilter.Add(".otf");
             openPicker.FileTypeFilter.Add(".ttf");
 
             StorageFile file = await openPicker.PickSingleFileAsync();
@@ -95,6 +94,7 @@ namespace Editor
                 // Hide hint text and show new buttons once the font is successfully parsed.
                 GlyphGridHint.Visibility = Visibility.Collapsed;
                 ExportSVGButton.Visibility = Visibility.Visible;
+                ImportSVGButton.Visibility = Visibility.Visible;
                 SaveFileButton.Visibility = Visibility.Visible;
             }
         }
@@ -178,7 +178,6 @@ namespace Editor
         {
             FileSavePicker savePicker = new FileSavePicker();
             savePicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-            savePicker.FileTypeChoices.Add("OpenType Font", new List<string>() { ".otf" });
             savePicker.FileTypeChoices.Add("TrueType Font", new List<string>() { ".ttf" });
             savePicker.SuggestedFileName = "NewFont";
 
@@ -354,6 +353,85 @@ namespace Editor
                 catch (Exception exc)
                 {
                     await NotifyUserAsync("The app encountered an error while trying to export SVG files from the font. Please ensure the font is well-formed and that you have access to the destination folder.", exc);
+                    return;
+                }
+            }
+        }
+
+        private async Task AddSvgAsync(ushort glyphID, StorageFile svgFile)
+        {
+            try
+            {
+                await fontFile.AddSvgAsync(glyphID, svgFile);
+            }
+            catch (Exception exc)
+            {
+                await NotifyUserAsync($"Error while processing file {svgFile.Name}", exc);
+                throw;
+            }
+        }
+
+        // When the "Import all SVG..." button is clicked, retrieve all SVG objects from the folder
+        // and embed them into the font
+        private async void ImportAllSvgButtonClick(object sender, RoutedEventArgs e)
+        {
+            FolderPicker svgFolderPicker = new FolderPicker();
+            svgFolderPicker.SuggestedStartLocation = PickerLocationId.Desktop;
+            svgFolderPicker.FileTypeFilter.Add("*");
+
+            StorageFolder inputFolder = await svgFolderPicker.PickSingleFolderAsync();
+            if (inputFolder != null)
+            {
+                try
+                {
+                    // Load SVG files with matching names
+                    var files = await inputFolder.GetFilesAsync();
+                    var codepoints = new Dictionary<uint, StorageFile>();
+                    foreach (var file in files)
+                    {
+                        if (!file.Name.StartsWith("U+")) continue;
+                        uint codepoint = (uint)Convert.ToInt32(
+                            file.Name
+                                .Replace("U+", "0x")
+                                .Replace(".SVG", "")
+                                .Replace(".svg", ""),
+                            16
+                        );
+                        codepoints[codepoint] = file;
+                    }
+
+                    // Update glyphs
+
+                    // First, try to update a single glyph. As it should generate missing SVG table.
+                    foreach (var glyph in fontFile.AllGlyphs)
+                    {
+                        if (codepoints.ContainsKey(glyph.CodePoint))
+                        {
+                            await AddSvgAsync(glyph.GlyphID, codepoints[glyph.CodePoint]);
+                            await fontFile.ReloadDataAsync();
+                            break;
+                        }
+                    }
+
+                    // Then update all the glyphs.
+                    int patchedFiles = 0;
+                    foreach (var glyph in fontFile.AllGlyphs)
+                    {
+                        if (codepoints.ContainsKey(glyph.CodePoint))
+                        {
+                            await AddSvgAsync(glyph.GlyphID, codepoints[glyph.CodePoint]);
+                            ++patchedFiles;
+                        }
+                    }
+
+                    // Refresh the preview grid to reflect the modified font.
+                    await ReloadPreviewAsync();
+
+                    fontFile.ShowToast($"Patched {patchedFiles} glyphs with files from {inputFolder.Path}");
+                }
+                catch (Exception exc)
+                {
+                    await NotifyUserAsync("The app encountered an error while trying to import SVG files to the font. Please ensure the font and SVG files are well-formed.", exc);
                     return;
                 }
             }
